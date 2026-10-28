@@ -31,8 +31,11 @@ def calc_hydraulics(q_liq: float, p_res: float, p_bhp: float) -> tuple[float, fl
     j = q_liq / dp
     return dp, j
 
-def determine_status_code(drawdown: float, w_pct: float, prod_index: float, j_norm: float = config.J_NORM_DEFAULT) -> str:
-    """Классифицирует техническое состояние скважины по приоритетной цепочке условий."""
+def determine_status_code(drawdown: float, w_pct: float, prod_index: float, p_bhp: float, j_norm: float = config.J_NORM_DEFAULT) -> str:
+    if p_bhp > config.P_LIMIT_OVERPRESSURE:
+        return "OVERPRESSURE"  # Экстренный код по Упражнению 4
+    if drawdown < 0.0: 
+        return "BLOWOUT"
     if drawdown < 0.0:
         return "BLOWOUT"
     elif drawdown <= config.DP_MIN_ACTIVE:
@@ -47,6 +50,10 @@ def determine_status_code(drawdown: float, w_pct: float, prod_index: float, j_no
 def route_dispatcher_action(status_code: str) -> tuple[str, int]:
     """Маршрутизирует код состояния в конкретную директиву диспетчеру через match-case."""
     match status_code:
+        case "OVERPRESSURE":
+            return "КРИТИЧЕСКИЙ СБОЙ: Давление выше 50 МПа! Мгновенно стравить давление в коллектор!", 3
+        case "BLOWOUT":
+            return "МАРШРУТ АВАРИЙНЫЙ: Закрыть коренную задвижку, объявить тревогу!", 3
         case "BLOWOUT":
             return "МАРШРУТ АВАРИЙНЫЙ: Закрыть коренную задвижку, объявить тревогу!", 3
         case "IDLE":
@@ -72,7 +79,7 @@ if __name__ == "__main__":
     
     my_dp, my_j = calc_hydraulics(v_q_liq, v_p_res, v_p_bhp)
     
-    code = determine_status_code(my_dp, v_w_pct, my_j)
+    code = determine_status_code(my_dp, v_w_pct, my_j, v_p_bhp)
     
     directive, level = route_dispatcher_action(code)
 
